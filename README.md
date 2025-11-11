@@ -8,11 +8,7 @@ Built with SAMtools (v1.9) and RegTools (v0.5.2).
 
 # Workflows
 ## samtools method
-
-![junctionScope_samtoolsWorkflow](https://github.com/user-attachments/assets/06e71ac9-1f70-469d-a5c0-ef72137deb7a)
-
-
-![junctionScope_samtoolsWorkflow](https://github.com/user-attachments/assets/cb643144-28dc-4443-b1e2-1b375761ad5f)
+![junctionScope_samtoolsWorkflow](https://github.com/user-attachments/assets/38ac9345-56b6-47a2-9e1b-c0445cbcc7c4)
 
 ## regtools method
-![junctionScope_regtoolsWorkflow](https://github.com/user-attachments/assets/0ea1ce1f-ab3b-44dd-8c6e-5660608d562b)
+![junctionScope_regtoolsWorkflow](https://github.com/user-attachments/assets/7ea9bca2-d4e4-4169-9bbe-783515780a95)
