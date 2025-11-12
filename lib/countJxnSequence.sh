@@ -31,4 +31,5 @@ if [ -z "${DIR}" ] || [ -z "${OUTPUT}" ]; then
 fi
 
 echo -e "count_samtools\tSAM_file" > ${OUTPUT}
-wc -l ${DIR}/* | sed '$ d' | sed -E 's/\s+/\t/g' >> ${OUTPUT}
+wc -l ${DIR}/* | sed '$ d' | sed 's/^[[:space:]]*//' | sed -E 's/\s+/\t/g' >> ${OUTPUT}
+
