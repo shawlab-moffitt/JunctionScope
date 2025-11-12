@@ -75,7 +75,7 @@ mkdir -p ${OUTPUT}/extractJxnRegion
 mkdir -p ${OUTPUT}/extractJxnSequence
 mkdir -p ${OUTPUT}/extractJxnRegtools
 mkdir -p ${OUTPUT}/annotateJxnRegtools
-echo "sample" >> ${OUTPUT}/outputJxnCount.scopeFinal.txt
+echo "sample" >> ${OUTPUT}/outputJxnCount.scopeFinal_temp.txt
 
 inFileCols=$(awk -F'\t' '{print NF; exit}' ${INPUT})
 
@@ -90,7 +90,7 @@ if [[ ${inFileCols} -eq 1 ]]; then
 		# regtools extract
 		echo "sh extractJxnRegtools.sh -i ${file} -r ${REGION} -s ${STRAND} -o ${OUTPUT}/extractJxnRegtools/${sample}.region.bed" >> ${OUTPUT}/extractJxnRegtools_batch.sh
 		echo "sh annotateJxnRegtools.sh -i ${OUTPUT}/extractJxnRegtools/${sample}.region.bed -f ${FASTA} -g ${GTF} -o ${OUTPUT}/annotateJxnRegtools/${sample}.region.bed.anno" >> ${OUTPUT}/annotateJxnRegtools_batch.sh
-		echo "${sample}" >> ${OUTPUT}/outputJxnCount.scopeFinal.txt
+		echo "${sample}" >> ${OUTPUT}/outputJxnCount.scopeFinal_temp.txt
 	done < ${INPUT}
 else
 	while IFS=$'\t' read -r sample file; do
@@ -102,7 +102,7 @@ else
 		# regtools extract
 		echo "sh extractJxnRegtools.sh -i ${file} -r ${REGION} -s ${STRAND} -o ${OUTPUT}/extractJxnRegtools/${sample}.region.bed" >> ${OUTPUT}/extractJxnRegtools_batch.sh
 		echo "sh annotateJxnRegtools.sh -i ${OUTPUT}/extractJxnRegtools/${sample}.region.bed -f ${FASTA} -g ${GTF} -o ${OUTPUT}/annotateJxnRegtools/${sample}.region.bed.anno" >> ${OUTPUT}/annotateJxnRegtools_batch.sh
-		echo "${sample}" >> ${OUTPUT}/outputJxnCount.scopeFinal.txt
+		echo "${sample}" >> ${OUTPUT}/outputJxnCount.scopeFinal_temp.txt
 	done < ${INPUT}
 fi
 
@@ -112,6 +112,6 @@ echo "sh ${OUTPUT}/extractJxnRegtools_batch.sh" >> ${OUTPUT}_exc.sh
 echo "sh ${OUTPUT}/annotateJxnRegtools_batch.sh" >> ${OUTPUT}_exc.sh
 echo "sh countJxnSequence.sh -d ${OUTPUT}/extractJxnSequence/ -o ${OUTPUT}/output.JxnCount.txt" >> ${OUTPUT}_exc.sh
 echo "sh matchJxnRegtools.sh -d ${OUTPUT}/annotateJxnRegtools/ -r ${REGION} -o ${OUTPUT}/outputJxnCount.regtools.txt" >> ${OUTPUT}_exc.sh
-echo "paste -d'\t' ${OUTPUT}/outputJxnCount.scopeFinal.txt ${OUTPUT}/output.JxnCount.txt ${OUTPUT}/outputJxnCount.regtools.txt > ${OUTPUT}/outputJxnCount.scopeFinal.txt" >> ${OUTPUT}_exc.sh
-
+echo "paste -d'\t' ${OUTPUT}/outputJxnCount.scopeFinal_temp.txt ${OUTPUT}/output.JxnCount.txt ${OUTPUT}/outputJxnCount.regtools.txt > ${OUTPUT}/outputJxnCount.scopeFinal.txt" >> ${OUTPUT}_exc.sh
+echo "rm -r ${OUTPUT}/outputJxnCount.scopeFinal_temp.txt"
 
