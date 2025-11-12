@@ -41,7 +41,7 @@ start_max=$((start + 1))
 end_min=$((end - 1))
 end_max=$((end + 1))
 
-echo -e "file\tscore\tstart_offset\tend_offset" > "${OUTPUT}"
+echo -e "regtools_file\tregtools_score\tstart_offset\tend_offset" > "${OUTPUT}"
 
 for f in "${DIR}"/*; do
     match_count=0
