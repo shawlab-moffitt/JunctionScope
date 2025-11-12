@@ -113,5 +113,5 @@ echo "sh ${OUTPUT}/annotateJxnRegtools_batch.sh" >> ${OUTPUT}_exc.sh
 echo "sh countJxnSequence.sh -d ${OUTPUT}/extractJxnSequence/ -o ${OUTPUT}/output.JxnCount.txt" >> ${OUTPUT}_exc.sh
 echo "sh matchJxnRegtools.sh -d ${OUTPUT}/annotateJxnRegtools/ -r ${REGION} -o ${OUTPUT}/outputJxnCount.regtools.txt" >> ${OUTPUT}_exc.sh
 echo "paste -d'\t' ${OUTPUT}/outputJxnCount.scopeFinal_temp.txt ${OUTPUT}/output.JxnCount.txt ${OUTPUT}/outputJxnCount.regtools.txt > ${OUTPUT}/outputJxnCount.scopeFinal.txt" >> ${OUTPUT}_exc.sh
-echo "rm -r ${OUTPUT}/outputJxnCount.scopeFinal_temp.txt"
+echo "rm -r ${OUTPUT}/outputJxnCount.scopeFinal_temp.txt" >> ${OUTPUT}_exc.sh
 
