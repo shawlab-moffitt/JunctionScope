@@ -15,6 +15,8 @@ BUFFER=200
 THREADS=1
 STRAND=0
 
+
+
 # region needs to be adjusted if chr or no chr in files
 # fasta index should be in folder with fasta, regtools might build onthe fly though
 
@@ -79,17 +81,24 @@ echo "sample" >> ${OUTPUT}/outputJxnCount.scopeFinal_temp.txt
 
 inFileCols=$(awk -F'\t' '{print NF; exit}' ${INPUT})
 
+code_dir=$(dirname ${0})/
+if [[ ${code_dir} == $(pwd)/ ]]; then
+	code_dir=""
+fi
+
+
+
 if [[ ${inFileCols} -eq 1 ]]; then
 	while IFS=$'\t' read -r file; do
 		# setup
 		file="${file//[$'\r\n']/}"
 		sample=$(basename ${file})
 		# samtools extract
-		echo "sh extractJxnRegion.sh -i ${file} -r ${REGION} -o ${OUTPUT}/extractJxnRegion/${sample}.region.sam -b ${BUFFER} -t ${THREADS}" >> ${OUTPUT}/extractJxnRegion_batch.sh
-		echo "sh extractJxnSequence.sh -i ${OUTPUT}/extractJxnRegion/${sample}.region.sam -n ${NTSEQ} -o ${OUTPUT}/extractJxnSequence/${sample}.region.seq.sam" >> ${OUTPUT}/extractJxnSequence_batch.sh
+		echo "sh ${code_dir}extractJxnRegion.sh -i ${file} -r ${REGION} -o ${OUTPUT}/extractJxnRegion/${sample}.region.sam -b ${BUFFER} -t ${THREADS}" >> ${OUTPUT}/extractJxnRegion_batch.sh
+		echo "sh ${code_dir}extractJxnSequence.sh -i ${OUTPUT}/extractJxnRegion/${sample}.region.sam -n ${NTSEQ} -o ${OUTPUT}/extractJxnSequence/${sample}.region.seq.sam" >> ${OUTPUT}/extractJxnSequence_batch.sh
 		# regtools extract
-		echo "sh extractJxnRegtools.sh -i ${file} -r ${REGION} -s ${STRAND} -o ${OUTPUT}/extractJxnRegtools/${sample}.region.bed" >> ${OUTPUT}/extractJxnRegtools_batch.sh
-		echo "sh annotateJxnRegtools.sh -i ${OUTPUT}/extractJxnRegtools/${sample}.region.bed -f ${FASTA} -g ${GTF} -o ${OUTPUT}/annotateJxnRegtools/${sample}.region.bed.anno" >> ${OUTPUT}/annotateJxnRegtools_batch.sh
+		echo "sh ${code_dir}extractJxnRegtools.sh -i ${file} -r ${REGION} -s ${STRAND} -o ${OUTPUT}/extractJxnRegtools/${sample}.region.bed" >> ${OUTPUT}/extractJxnRegtools_batch.sh
+		echo "sh ${code_dir}annotateJxnRegtools.sh -i ${OUTPUT}/extractJxnRegtools/${sample}.region.bed -f ${FASTA} -g ${GTF} -o ${OUTPUT}/annotateJxnRegtools/${sample}.region.bed.anno" >> ${OUTPUT}/annotateJxnRegtools_batch.sh
 		echo "${sample}" >> ${OUTPUT}/outputJxnCount.scopeFinal_temp.txt
 	done < ${INPUT}
 else
@@ -97,11 +106,11 @@ else
 		# setup
 		file="${file//[$'\r\n']/}"
 		# samtools extract
-		echo "sh extractJxnRegion.sh -i ${file} -r ${REGION} -o ${OUTPUT}/extractJxnRegion/${sample}.region.sam -b ${BUFFER} -t ${THREADS}" >> ${OUTPUT}/extractJxnRegion_batch.sh
-		echo "sh extractJxnSequence.sh -i ${OUTPUT}/extractJxnRegion/${sample}.region.sam -n ${NTSEQ} -o ${OUTPUT}/extractJxnSequence/${sample}.region.seq.sam" >> ${OUTPUT}/extractJxnSequence_batch.sh
+		echo "sh ${code_dir}extractJxnRegion.sh -i ${file} -r ${REGION} -o ${OUTPUT}/extractJxnRegion/${sample}.region.sam -b ${BUFFER} -t ${THREADS}" >> ${OUTPUT}/extractJxnRegion_batch.sh
+		echo "sh ${code_dir}extractJxnSequence.sh -i ${OUTPUT}/extractJxnRegion/${sample}.region.sam -n ${NTSEQ} -o ${OUTPUT}/extractJxnSequence/${sample}.region.seq.sam" >> ${OUTPUT}/extractJxnSequence_batch.sh
 		# regtools extract
-		echo "sh extractJxnRegtools.sh -i ${file} -r ${REGION} -s ${STRAND} -o ${OUTPUT}/extractJxnRegtools/${sample}.region.bed" >> ${OUTPUT}/extractJxnRegtools_batch.sh
-		echo "sh annotateJxnRegtools.sh -i ${OUTPUT}/extractJxnRegtools/${sample}.region.bed -f ${FASTA} -g ${GTF} -o ${OUTPUT}/annotateJxnRegtools/${sample}.region.bed.anno" >> ${OUTPUT}/annotateJxnRegtools_batch.sh
+		echo "sh ${code_dir}extractJxnRegtools.sh -i ${file} -r ${REGION} -s ${STRAND} -o ${OUTPUT}/extractJxnRegtools/${sample}.region.bed" >> ${OUTPUT}/extractJxnRegtools_batch.sh
+		echo "sh ${code_dir}annotateJxnRegtools.sh -i ${OUTPUT}/extractJxnRegtools/${sample}.region.bed -f ${FASTA} -g ${GTF} -o ${OUTPUT}/annotateJxnRegtools/${sample}.region.bed.anno" >> ${OUTPUT}/annotateJxnRegtools_batch.sh
 		echo "${sample}" >> ${OUTPUT}/outputJxnCount.scopeFinal_temp.txt
 	done < ${INPUT}
 fi
@@ -110,8 +119,8 @@ echo "sh ${OUTPUT}/extractJxnRegion_batch.sh" >> ${OUTPUT}_exc.sh
 echo "sh ${OUTPUT}/extractJxnSequence_batch.sh" >> ${OUTPUT}_exc.sh
 echo "sh ${OUTPUT}/extractJxnRegtools_batch.sh" >> ${OUTPUT}_exc.sh
 echo "sh ${OUTPUT}/annotateJxnRegtools_batch.sh" >> ${OUTPUT}_exc.sh
-echo "sh countJxnSequence.sh -d ${OUTPUT}/extractJxnSequence/ -o ${OUTPUT}/output.JxnCount.txt" >> ${OUTPUT}_exc.sh
-echo "sh matchJxnRegtools.sh -d ${OUTPUT}/annotateJxnRegtools/ -r ${REGION} -o ${OUTPUT}/outputJxnCount.regtools.txt" >> ${OUTPUT}_exc.sh
+echo "sh ${code_dir}countJxnSequence.sh -d ${OUTPUT}/extractJxnSequence/ -o ${OUTPUT}/output.JxnCount.txt" >> ${OUTPUT}_exc.sh
+echo "sh ${code_dir}matchJxnRegtools.sh -d ${OUTPUT}/annotateJxnRegtools/ -r ${REGION} -o ${OUTPUT}/outputJxnCount.regtools.txt" >> ${OUTPUT}_exc.sh
 echo "paste -d'\t' ${OUTPUT}/outputJxnCount.scopeFinal_temp.txt ${OUTPUT}/output.JxnCount.txt ${OUTPUT}/outputJxnCount.regtools.txt > ${OUTPUT}/outputJxnCount.scopeFinal.txt" >> ${OUTPUT}_exc.sh
 echo "rm -r ${OUTPUT}/outputJxnCount.scopeFinal_temp.txt" >> ${OUTPUT}_exc.sh
 
