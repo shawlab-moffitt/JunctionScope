@@ -1,0 +1,35 @@
+name: junctionScope
+channels:
+  - bioconda
+  - defaults
+dependencies:
+  - _libgcc_mutex=0.1=main
+  - _openmp_mutex=5.1=1_gnu
+  - bzip2=1.0.8=h5eee18b_6
+  - ca-certificates=2025.11.4=h06a4308_0
+  - curl=7.69.1=hbc83047_0
+  - htslib=1.9=h244ad75_9
+  - krb5=1.17.1=h173b8e3_0
+  - libcurl=7.69.1=h20c2e04_0
+  - libdeflate=1.22=h5eee18b_0
+  - libedit=3.1.20181209=hc058e9b_0
+  - libgcc=15.2.0=h69a1729_7
+  - libgcc-ng=15.2.0=h166f726_7
+  - libgomp=15.2.0=h4751f2c_7
+  - libssh2=1.10.0=h37d81fd_2
+  - libstdcxx=15.2.0=h39759b7_7
+  - libstdcxx-ng=15.2.0=hc03a8fd_7
+  - libxcb=1.17.0=h9b100fa_0
+  - ncurses=6.1=he6710b0_1
+  - openssl=1.1.1w=h7f8727e_0
+  - pthread-stubs=0.3=h0ce48e5_1
+  - regtools=0.5.2=he513fc3_0
+  - samtools=1.9=h10a08f8_12
+  - tk=8.6.15=h54e0aa7_0
+  - xorg-libx11=1.8.12=h9b100fa_1
+  - xorg-libxau=1.0.12=h9b100fa_0
+  - xorg-libxdmcp=1.1.5=h9b100fa_0
+  - xorg-xorgproto=2024.1=h5eee18b_1
+  - xz=5.2.10=h5eee18b_1
+  - zlib=1.2.13=hd233ad5_2
+prefix: /home/4474108/.conda/envs/junctionScope
