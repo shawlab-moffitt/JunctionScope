@@ -15,11 +15,6 @@ BUFFER=200
 THREADS=1
 STRAND=0
 
-
-
-# region needs to be adjusted if chr or no chr in files
-# fasta index should be in folder with fasta, regtools might build onthe fly though
-
 while getopts ":c:i:r:n:f:g:o:b:s:t:" opt; do
   case ${opt} in
   c)
@@ -56,10 +51,6 @@ while getopts ":c:i:r:n:f:g:o:b:s:t:" opt; do
       echo "Invalid option: -$OPTARG" >&2
       exit 1
       ;;
-    #:)
-    #  echo "Option -$OPTARG requires an argument." >&2
-    #  exit 1
-    #  ;;
   esac
 done
 
@@ -85,8 +76,6 @@ code_dir=$(dirname ${0})/
 if [[ ${code_dir} == $(pwd)/ ]]; then
 	code_dir=""
 fi
-
-
 
 if [[ ${inFileCols} -eq 1 ]]; then
 	while IFS=$'\t' read -r file; do
