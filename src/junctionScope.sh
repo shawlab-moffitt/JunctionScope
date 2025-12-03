@@ -10,6 +10,8 @@ usage() { echo "Usage: $0 [-c <config file>] [-i <list file>] [-r <chr1:1000-200
 # ml SAMtools/1.9-foss-2018b
 # ml OpenBLAS/0.3.18-GCC-11.2.0
 
+set -e
+
 # Defaults
 BUFFER=200
 THREADS=1
@@ -63,12 +65,38 @@ if [ -z "${INPUT}" ] || [ -z "${REGION}" ] || [ -z "${NTSEQ}" ] || [ -z "${FASTA
     usage
 fi
 
+
+
 mkdir -p ${OUTPUT}
 mkdir -p ${OUTPUT}/extractJxnRegion
 mkdir -p ${OUTPUT}/extractJxnSequence
 mkdir -p ${OUTPUT}/extractJxnRegtools
 mkdir -p ${OUTPUT}/annotateJxnRegtools
 echo "sample" >> ${OUTPUT}/outputJxnCount.scopeFinal_temp.txt
+
+echo "INPUT=${INPUT}" >> ${OUTPUT}/${OUTPUT}.conf
+echo "REGION=${REGION}" >> ${OUTPUT}/${OUTPUT}.conf
+echo "NTSEQ=${NTSEQ}" >> ${OUTPUT}/${OUTPUT}.conf
+echo "FASTA=${FASTA}" >> ${OUTPUT}/${OUTPUT}.conf
+echo "GTF=${GTF}" >> ${OUTPUT}/${OUTPUT}.conf
+echo "BUFFER=${BUFFER}" >> ${OUTPUT}/${OUTPUT}.conf
+echo "STRAND=${STRAND}" >> ${OUTPUT}/${OUTPUT}.conf
+echo "THREADS=${THREADS}" >> ${OUTPUT}/${OUTPUT}.conf
+echo "OUTPUT=${OUTPUT}" >> ${OUTPUT}/${OUTPUT}.conf
+
+echo "# --INPUT ${INPUT}" >> ${OUTPUT}/${OUTPUT}.head.conf
+echo "# --REGION ${REGION}" >> ${OUTPUT}/${OUTPUT}.head.conf
+echo "# --NTSEQ ${NTSEQ}" >> ${OUTPUT}/${OUTPUT}.head.conf
+echo "# --FASTA ${FASTA}" >> ${OUTPUT}/${OUTPUT}.head.conf
+echo "# --GTF ${GTF}" >> ${OUTPUT}/${OUTPUT}.head.conf
+echo "# --BUFFER ${BUFFER}" >> ${OUTPUT}/${OUTPUT}.head.conf
+echo "# --STRAND ${STRAND}" >> ${OUTPUT}/${OUTPUT}.head.conf
+echo "# --THREADS ${THREADS}" >> ${OUTPUT}/${OUTPUT}.head.conf
+echo "# --OUTPUT ${OUTPUT}" >> ${OUTPUT}/${OUTPUT}.head.conf
+
+
+
+
 
 inFileCols=$(awk -F'\t' '{print NF; exit}' ${INPUT})
 
@@ -111,5 +139,7 @@ echo "sh ${OUTPUT}/annotateJxnRegtools_batch.sh" >> ${OUTPUT}_exc.sh
 echo "sh ${code_dir}countJxnSequence.sh -d ${OUTPUT}/extractJxnSequence/ -o ${OUTPUT}/output.JxnCount.txt" >> ${OUTPUT}_exc.sh
 echo "sh ${code_dir}matchJxnRegtools.sh -d ${OUTPUT}/annotateJxnRegtools/ -r ${REGION} -o ${OUTPUT}/outputJxnCount.regtools.txt" >> ${OUTPUT}_exc.sh
 echo "paste -d'\t' ${OUTPUT}/outputJxnCount.scopeFinal_temp.txt ${OUTPUT}/output.JxnCount.txt ${OUTPUT}/outputJxnCount.regtools.txt > ${OUTPUT}/outputJxnCount.scopeFinal.txt" >> ${OUTPUT}_exc.sh
-echo "rm -r ${OUTPUT}/outputJxnCount.scopeFinal_temp.txt" >> ${OUTPUT}_exc.sh
+echo "cat ${OUTPUT}/${OUTPUT}.head.conf ${OUTPUT}/outputJxnCount.scopeFinal.txt > ${OUTPUT}/outputJxnCount.scopeFinal_temp.txt" >> ${OUTPUT}_exc.sh
+echo "mv ${OUTPUT}/outputJxnCount.scopeFinal_temp.txt ${OUTPUT}/outputJxnCount.scopeFinal.txt" >> ${OUTPUT}_exc.sh
+echo "rm -r ${OUTPUT}/${OUTPUT}.head.conf" >> ${OUTPUT}_exc.sh
 
