@@ -1,15 +1,17 @@
 #! /bin/bash
 
+
 # Example Use
 # sh extractJxnRegion.sh -i input.cram -r chr1:1000-2000 -o output.region.sam -b 200 -t 8
 
-usage() { echo "Usage: $0 [-i <CRAM/BAM/SAM file>] [-r <chr1:1000-2000>] [-o <output SAM file>] [-b <int nucleotide region buffer>] [-t <int threads>]" 1>&2; exit 1; }
+usage() { echo "Usage: $0 [-i <CRAM/BAM/SAM file>] [-r <chr1:1000-2000>] [-o <output SAM file>] [-b <int nucleotide region buffer>] [-t <int threads>] [-f <flag to filter out multimapped reads>]" 1>&2; exit 1; }
 
 # Defaults
 BUFFER=200
 THREADS=1
+FILTER=false
 
-while getopts ":i:r:o:b:t:" opt; do
+while getopts ":i:r:o:b:t:f" opt; do
   case ${opt} in
   i)
   	INPUT=${OPTARG}
@@ -26,6 +28,9 @@ while getopts ":i:r:o:b:t:" opt; do
   t)
   	THREADS=${OPTARG}
   	;;
+  f)
+    FILTER=true
+    ;;
   	\?)
       echo "Invalid option: -$OPTARG" >&2
       exit 1
@@ -52,11 +57,10 @@ then
 	REGION=${chr}:${str}-${end}
 fi
 
-if [[ ${THREADS} -gt 1 ]]; then
-	samtools view -@ ${THREADS} ${INPUT} ${REGION} > ${OUTPUT}
+if [ ${FILTER} ]; then
+  samtools view -F 0x900 -@ ${THREADS} ${INPUT} ${REGION} > ${OUTPUT}
 else
-	samtools view ${INPUT} ${REGION} > ${OUTPUT}
+  samtools view -@ ${THREADS} ${INPUT} ${REGION} > ${OUTPUT}
 fi
-
 
 
