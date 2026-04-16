@@ -1,16 +1,19 @@
 #! bin/bash/
 
+
 # Example Use
-# sh countJxnSequence.sh -d /.region.seq.sam/file/directory/ -o outputJxnCount.region.seq.txt
+# sh countJxnSequence.sh -d region.seq.sam -o region.seq.txt
 
+unset -v INPUT OUTPUT
 
-usage() { echo "Usage: $0 [-i <SAM file directory>] [-o <output text file>]" 1>&2; exit 1; }
+usage() { echo "Usage: $0 [-i <SAM file>] [-o <output text file>]" 1>&2; exit 1; }
 
+OUTPUT="NULL"
 
-while getopts ":d:o:" opt; do
+while getopts ":i:o:" opt; do
   case ${opt} in
-  d)
-  	DIR=${OPTARG}
+  i)
+  	INPUT=${OPTARG}
   	;;
   o)
   	OUTPUT=${OPTARG}
@@ -26,10 +29,17 @@ while getopts ":d:o:" opt; do
   esac
 done
 
-if [ -z "${DIR}" ] || [ -z "${OUTPUT}" ]; then
+if [ -z "${INPUT}" ]; then
     usage
 fi
 
-echo -e "count_samtools\tSAM_file" > ${OUTPUT}
-wc -l ${DIR}/* | sed '$ d' | sed 's/^[[:space:]]*//' | sed -E 's/\s+/\t/g' >> ${OUTPUT}
+if [[ ${OUTPUT} == "NULL" ]]; then
+  wc -l ${INPUT} | awk '{print $1}'
+else
+  wc -l ${INPUT} | awk '{print $1}' > ${OUTPUT}
+fi
 
+
+#echo -e "count_samtools\tSAM_file" > ${OUTPUT}
+#wc -l ${DIR}/* | sed '$ d' | sed 's/^[[:space:]]*//' | awk '{print $1}' >> ${OUTPUT}
+# list files and line count | remove last line | reorder columns with tab delim
