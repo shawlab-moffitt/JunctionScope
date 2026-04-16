@@ -38,4 +38,3 @@ fi
 
 regtools junctions annotate -o ${OUTPUT} ${INPUT} ${FASTA} ${GTF}
 
-
