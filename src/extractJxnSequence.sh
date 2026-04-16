@@ -1,5 +1,6 @@
 #! /bin/bash
 
+
 # Example Use
 # sh extractJxnSequence.sh -i input.region.sam -n ATCGGACATT -o output.seq.sam
 
