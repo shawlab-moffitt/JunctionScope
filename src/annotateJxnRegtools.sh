@@ -36,5 +36,9 @@ if [ -z "${INPUT}" ] || [ -z "${FASTA}" ] || [ -z "${GTF}" ] || [ -z "${OUTPUT}"
 fi
 
 
-regtools junctions annotate -o ${OUTPUT} ${INPUT} ${FASTA} ${GTF}
+
+regtools junctions annotate ${INPUT} ${FASTA} ${GTF} | (read -r header; echo "$header"; sort -u) > ${OUTPUT}
+
+
+
 
