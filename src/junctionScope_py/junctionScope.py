@@ -63,6 +63,7 @@ def parse_config(config_path: str) -> dict:
 	config.setdefault("GENE", "NULL")
 	config.setdefault("JXNCOORD", "NULL")
 	config.setdefault("JXN_TABLE", "NULL")
+	config.setdefault("REGTOOLS", False)
 	return config
 
 
@@ -72,7 +73,6 @@ def validate_config(config: dict):
 	missing = [k for k in required_always if not config.get(k)]
 	if missing:
 		sys.exit(f"[junctionScope] Missing required config keys: {', '.join(missing)}")
-
 	has_single = config["JXNCOORD"] != "NULL" and config["GENE"] != "NULL"
 	has_table  = config["JXN_TABLE"] != "NULL"
 	if not has_single and not has_table:
@@ -930,6 +930,7 @@ def run_sample_junction(
 	output_dir: str,
 	buffer: int = 200,
 	threads: int = 1,
+	regtools: bool = False
 ) -> dict:
 	"""
 	Run the full pipeline for one sample × one junction entry.
@@ -945,6 +946,7 @@ def run_sample_junction(
 	output_dir  : Intermediate/<sample> directory
 	buffer      : nt buffer for region extraction
 	threads     : samtools threads
+	regtools    : bool == True to run regtools steps
 
 	Returns a dict matching OUTPUT_COLUMNS.
 	"""
@@ -952,9 +954,8 @@ def run_sample_junction(
 	gene     = jxn_entry["gene"]
 	jxncoord = jxn_entry["junction"]
 	nt_seq   = jxn_entry["nt_seq"]
-	step_count = 6 if validate_regtools() else 5
+	step_count = 6 if regtools and validate_regtools() else 5
 	global step_n
-	#step_n += 1
 	step_n = 1
 
 	# Derive NT sequence if not provided
@@ -962,7 +963,6 @@ def run_sample_junction(
 		nt_seq = get_nt_seq(jxncoord, fasta, window=5)
 		print(f"  [NT seq] derived: {nt_seq}")
 
-	#base = os.path.join(output_dir, f"{jxn_name}",f"{sample}.{jxn_name}")
 	# Resolve output_dir to absolute so file I/O works regardless of cwd
 	output_dir = str(Path(output_dir).resolve())
 	os.makedirs(output_dir, exist_ok=True)
@@ -1043,7 +1043,7 @@ def run_sample_junction(
 	# ------------------------------------------------------------------
 	# 5. regtools extract + annotate (gene-level)
 	# ------------------------------------------------------------------
-	if validate_regtools():
+	if regtools and validate_regtools():
 		print(f"  [{step_n}/{step_count}] Running regtools ...")
 		step_n += 1
 		reg_bed  = f"{base}.gene.bed"
@@ -1090,7 +1090,7 @@ def run_sample_junction(
 	}
 
 
-	if validate_regtools():
+	if regtools and validate_regtools():
 		base_result.update({
 		"geneJxn_count_mean":       gene_summ["mean_val"],
 		"geneJxn_count_median":     gene_summ["median_val"],
@@ -1170,6 +1170,7 @@ def setup(config: dict) -> tuple[list[dict], list[tuple[str, str]]]:
 	input_list = str(Path(config["INPUT"]).resolve())
 	buffer     = int(config["BUFFER"])
 	threads    = int(config["THREADS"])
+	regtools   = bool(config["REGTOOLS"])
 
 	# Store resolved paths back so callers that access config directly get abs paths
 	config["OUTPUT"]     = output
@@ -1245,7 +1246,8 @@ def setup(config: dict) -> tuple[list[dict], list[tuple[str, str]]]:
 				exc.write(_render_exc_script(
 					script_path, sample, bam_abs,
 					jxn_list, gene_regions, gene_gtfs,
-					fasta, buffer, threads, output_abs,
+					fasta, buffer, threads,
+					output_abs, regtools
 				))
 			# Write absolute path so the master script runs from any directory
 			master.write(f"python3 {exc_script}\n")
@@ -1255,7 +1257,7 @@ def setup(config: dict) -> tuple[list[dict], list[tuple[str, str]]]:
 	# ── Summary script ───────────────────────────────────────────────────────
 	summary_script = str(Path(output_abs) / "junctScopeSummarize.py")
 	with open(summary_script, "w") as summ:
-		summ.write(_render_summary_script(output_abs, jxn_list))
+		summ.write(_render_summary_script(output_abs, jxn_list, regtools))
 	print(f"[setup] After all samples finish: python3 {summary_script}")
 
 	return jxn_list, samples
@@ -1264,7 +1266,7 @@ def setup(config: dict) -> tuple[list[dict], list[tuple[str, str]]]:
 def _render_exc_script(
 	script_path, sample, bam_file,
 	jxn_list, gene_regions, gene_gtfs,
-	fasta, buffer, threads, output,
+	fasta, buffer, threads, output, regtools
 ) -> str:
 	"""Render the Python source for a per-sample execution script."""
 	return f"""#!/usr/bin/env python3
@@ -1281,6 +1283,7 @@ bam_file = {repr(bam_file)}
 fasta    = {repr(fasta)}
 buffer   = {buffer}
 threads  = {threads}
+regtools = {regtools}
 
 jxn_list     = {repr(jxn_list)}
 gene_regions = {repr(gene_regions)}
@@ -1299,15 +1302,16 @@ for jxn in jxn_list:
 		output_dir  = os.path.join({repr(output)}, "Intermediate", sample, jxn["junction_name"]),
 		buffer      = buffer,
 		threads     = threads,
+		regtools    = regtools
 	)
 
 print(f"[{{sample}}] all junctions complete.")
 """
 
 
-def _render_summary_script(output: str, jxn_list: list) -> str:
+def _render_summary_script(output: str, jxn_list: list, regtools: bool = False) -> str:
 	"""Render the Python source for the cross-sample summary script."""
-	if validate_regtools():
+	if regtools and validate_regtools():
 		header = "\t".join(OUTPUT_COLUMNS)
 	else:
 		header = "\t".join(OUTPUT_COLUMNS_noReg)
@@ -1374,6 +1378,8 @@ Examples:
 	parser.add_argument("--bam",           help="BAM/CRAM path (required with --sample)")
 	parser.add_argument("--merge-barcodes", action="store_true",
 						help="Merge per-barcode bcd.best files across junctions/samples and exit")
+	parser.add_argument("--run-regtools", action="store_true", default = False,
+						help="Run regtools junction extraction and annotation steps")
 	args = parser.parse_args()
 
 	config = parse_config(args.config)
@@ -1394,9 +1400,14 @@ Examples:
 	gene_regions = config["_gene_regions"]
 	gene_gtfs    = config["_gene_gtfs"]
 
+	if "REGTOOLS" not in config:
+		config["REGTOOLS"] = args.run_regtools
+
+	regtools = config["REGTOOLS"]
+
 	def _run_one(sample, bam_file):
-		sample_dir = os.path.join(output, "Intermediate", sample)
 		for jxn in jxn_list:
+			sample_dir = os.path.join(output, "Intermediate", sample, jxn['junction_name'])
 			gene = jxn["gene"]
 			print(f"[{sample}] junction: {jxn['junction_name']}")
 			run_sample_junction(
@@ -1409,6 +1420,7 @@ Examples:
 				output_dir  = sample_dir,
 				buffer      = buffer,
 				threads     = threads,
+				regtools    = regtools
 			)
 
 	if args.sample:
