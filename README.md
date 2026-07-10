@@ -8,6 +8,7 @@
 ### Sample table
 - Tab-delim text file of sample name and cram/bam file.
 - Optional inclusion of loom file as third column
+
 |  |  |  |
 | --- | --- | --- |
 | Sample1 | path/to/sample1.bam | path/to/sample1.loom |
@@ -19,6 +20,7 @@
 - Nucleotide sequence column is optional
 - Gene column should be formatted as the HUGO gene symbol
 - junction name ID should be unique to junction
+
 | junction_name | gene | junction | nt_seq |
 | --- | --- | --- | --- |
 | junctionName1 | gene1 | chr1:1000-2000 | ...ATCGATCG... | 
