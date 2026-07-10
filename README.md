@@ -9,10 +9,12 @@
 - Tab-delim text file of sample name and cram/bam file.
 - Optional inclusion of loom file as third column
 
+
 |  |  |  |
 | --- | --- | --- |
 | Sample1 | path/to/sample1.bam | path/to/sample1.loom |
 | Sample2 | path/to/sample2.bam | path/to/sample2.loom |
+
 
 ### Junction Table
 - Tab-delim text file of junctions to quantify.
@@ -21,10 +23,12 @@
 - Gene column should be formatted as the HUGO gene symbol
 - junction name ID should be unique to junction
 
+
 | junction_name | gene | junction | nt_seq |
 | --- | --- | --- | --- |
 | junctionName1 | gene1 | chr1:1000-2000 | ...ATCGATCG... | 
 | junctionName2 | gene2 | chr2:1000-2000 | ...ATCGATCG... |
+
 
 ## Environment Setup
 ### Create conda environment
