@@ -1,0 +1,57 @@
+{
+  "main_config": {
+    "input": "",
+    "proj_name": "",
+    "jxn_table": "",
+    "gene": "",
+    "jxncoord": "",
+    "jxnsource":"",
+    "ntseq": "",
+    "sc_method":"",
+    "bcd_tag":"",
+    "umi_tag":"",
+    "fasta": "",
+    "gtf": "",
+    "mode": "sc",
+    "regtools": false,
+    "buffer": 200,
+    "threads": 16,
+    "qc_step": false,
+    "velocyto": false
+  },
+  "function_config": {
+    "get_nt_seq": {
+      "window": 5,
+      "rev_comp": false
+    },
+    "load_fasta_kmers": {
+      "revC": true,
+      "k": 31
+    },
+    "extract_jxn_region": {
+      "buffer": 200
+    },
+    "filter_to_junction": {
+      "buffer": 5,
+      "filter_barcodes": false
+    },
+    "seq_check": {
+      "filter_rows": false,
+      "case_sensitive": false
+    },
+    "query_bam_to_fasta": {
+      "revC": true,
+      "k": 31
+    },
+    "select_best_junction": {
+      "min_reads": 5,
+      "min_seq_reads": 0
+    },
+    "extract_jxn_regtools": {
+      "buffer": 1000
+    },
+    "match_sam_to_regtools": {
+      "coord_tol": 1
+    }
+  }
+}
