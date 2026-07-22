@@ -48,6 +48,8 @@ import scvelo as scv
 import cellrank as cr
 import anndata as ad
 import pyranges as pr
+import importlib
+import warnings
 
 
 
@@ -314,6 +316,107 @@ def add_buffer(region: str, buffer: int) -> str:
 	chrom, start, end = parse_region(region)
 	return f"{chrom}:{max(0, start - buffer)}-{end + buffer}"
 
+# =============================================================================
+# Check for format of chromosome name - with or without 'chr''
+# =============================================================================
+
+def contig_alias_key(contig: str) -> str:
+	"""
+	Return a normalized key for common chromosome aliases.
+
+	Examples
+	--------
+	chr1 and 1       -> 1
+	chrX and X       -> X
+	chrM, M, and MT  -> MT
+	"""
+	if contig is None:
+		return None
+
+	try:
+		if pd.isna(contig):
+			return None
+	except (TypeError, ValueError):
+		pass
+
+	name = str(contig).strip()
+
+	if name.lower().startswith("chr"):
+		name = name[3:]
+
+	name = name.upper()
+
+	if name in {"M", "MT"}:
+		return "MT"
+
+	return name
+
+
+def resolve_contig_name(
+	contig: str,
+	references,
+	source_label: str = "reference",
+) -> str:
+	"""
+	Resolve a requested chromosome name against contigs found in a
+	BAM, CRAM, or FASTA header.
+
+	Exact matches are preferred. Common aliases such as chrX/X and
+	chr1/1 are used only when necessary.
+	"""
+	requested = str(contig).strip()
+	refs = tuple(str(ref) for ref in references)
+
+	# Best case: exact match
+	if requested in refs:
+		return requested
+
+	# Case-insensitive exact match
+	case_matches = [
+		ref for ref in refs
+		if ref.lower() == requested.lower()
+	]
+
+	if len(case_matches) == 1:
+		return case_matches[0]
+
+	# Direct chr-prefix counterpart
+	if requested.lower().startswith("chr"):
+		direct_alias = requested[3:]
+	else:
+		direct_alias = f"chr{requested}"
+
+	if direct_alias in refs:
+		return direct_alias
+
+	# General alias comparison
+	target_key = contig_alias_key(requested)
+
+	alias_matches = [
+		ref for ref in refs
+		if contig_alias_key(ref) == target_key
+	]
+
+	if len(alias_matches) == 1:
+		return alias_matches[0]
+
+	if len(alias_matches) > 1:
+		raise ValueError(
+			f"Ambiguous contig alias {requested!r} for {source_label}; "
+			f"possible matches: {alias_matches}"
+		)
+
+	preview = ", ".join(refs[:12])
+
+	if len(refs) > 12:
+		preview += ", ..."
+
+	raise ValueError(
+		f"Contig {requested!r} was not found in {source_label}. "
+		f"Available contigs begin with: {preview}"
+	)
+
+
 
 # =============================================================================
 # NT flanking sequence  (pysam.FastaFile replaces samtools faidx)
@@ -333,12 +436,32 @@ def get_nt_seq(region: str, fasta: str, window: int = 5, rev_comp: bool = False)
 	right_start = end
 	right_end   = end + window
 	with pysam.FastaFile(fasta) as fa:
-		left_seq  = fa.fetch(chrom, left_start, left_end)
-		right_seq = fa.fetch(chrom, right_start, right_end)
+		resolved_chrom = resolve_contig_name(
+			chrom,
+			fa.references,
+			source_label=f"FASTA {fasta}",
+		)
+
+		left_seq = fa.fetch(
+			resolved_chrom,
+			left_start,
+			left_end,
+		)
+
+		right_seq = fa.fetch(
+			resolved_chrom,
+			right_start,
+			right_end,
+		)
+	# with pysam.FastaFile(fasta) as fa:
+	# 	left_seq  = fa.fetch(chrom, left_start, left_end)
+	# 	right_seq = fa.fetch(chrom, right_start, right_end)
 	seq = (left_seq + right_seq).upper()
 	if rev_comp:
 		seq = seq.translate(str.maketrans("ACGTacgt", "TGCAtgca"))[::-1]
 	return seq
+
+
 
 def load_fasta_kmers(
 	fasta_path: str,
@@ -404,24 +527,91 @@ def gene_region_from_gtf(gtf_file: str, chrom: str) -> str:
 # Region extraction  (pysam replaces samtools view)
 # =============================================================================
 
+# def extract_jxn_region(
+# 	input_file: str,
+# 	region: str,
+# 	output_sam: str,
+# 	buffer: int = 200,
+# 	threads: int = 1,
+# ):
+# 	"""
+# 	Subset a BAM/CRAM to a buffered region and write a SAM file.
+# 	Auto-detects BAM vs CRAM from file suffix.
+# 	"""
+# 	suff = Path(input_file).suffix.lower()
+# 	mode = "rb" if suff == ".bam" else "rc"
+# 	buffered = add_buffer(region, buffer)
+# 	with pysam.AlignmentFile(input_file, mode, threads=threads) as bam, \
+# 		 pysam.AlignmentFile(output_sam, "w", header=bam.header) as out:
+# 		for read in bam.fetch(region=buffered):
+# 			out.write(read)
+
+
 def extract_jxn_region(
 	input_file: str,
 	region: str,
 	output_sam: str,
 	buffer: int = 200,
 	threads: int = 1,
-):
+) -> str:
 	"""
 	Subset a BAM/CRAM to a buffered region and write a SAM file.
-	Auto-detects BAM vs CRAM from file suffix.
+
+	The requested chromosome name is resolved against the alignment header,
+	allowing common aliases such as chrX/X and chr1/1.
+
+	Returns
+	-------
+	str
+		The unbuffered region using the chromosome name present in the BAM.
 	"""
 	suff = Path(input_file).suffix.lower()
-	mode = "rb" if suff == ".bam" else "rc"
-	buffered = add_buffer(region, buffer)
-	with pysam.AlignmentFile(input_file, mode, threads=threads) as bam, \
-		 pysam.AlignmentFile(output_sam, "w", header=bam.header) as out:
-		for read in bam.fetch(region=buffered):
+
+	if suff == ".bam":
+		mode = "rb"
+	elif suff == ".cram":
+		mode = "rc"
+	else:
+		raise ValueError("input_file must end in .bam or .cram")
+
+	requested_chrom, start, end = parse_region(region)
+
+	with pysam.AlignmentFile(
+		input_file,
+		mode,
+		threads=threads,
+	) as bam, pysam.AlignmentFile(
+		output_sam,
+		"w",
+		header=bam.header,
+	) as out:
+
+		resolved_chrom = resolve_contig_name(
+			requested_chrom,
+			bam.references,
+			source_label=f"alignment {input_file}",
+		)
+
+		if resolved_chrom != requested_chrom:
+			print(
+				f"  [contig] BAM uses {resolved_chrom!r}; "
+				f"requested coordinate used {requested_chrom!r}"
+			)
+
+		# JunctionScope coordinates are treated as 1-based.
+		# pysam fetch coordinates are 0-based, half-open.
+		fetch_start = max(0, start - buffer - 1)
+		fetch_end = end + buffer
+
+		for read in bam.fetch(
+			resolved_chrom,
+			fetch_start,
+			fetch_end,
+		):
 			out.write(read)
+
+	return f"{resolved_chrom}:{start}-{end}"
+
 
 
 # =============================================================================
@@ -555,6 +745,7 @@ def parse_sam_per_junction(sam_file: str,
 # Filtering helpers
 # =============================================================================
 
+
 def filter_to_junction(
 	parsed_sam: pd.DataFrame,
 	coord: str,
@@ -570,10 +761,27 @@ def filter_to_junction(
 	chrom, start, end = parse_region(coord)
 	col_check = parsed_sam.columns
 	if chr_col in col_check and start_col in col_check and end_col in col_check:
+		target_contig_key = contig_alias_key(chrom)
+		chrom_mask = (
+			parsed_sam[chr_col]
+			.map(contig_alias_key)
+			.eq(target_contig_key)
+		)
 		parsed_sam_coord = parsed_sam[
-									(parsed_sam[chr_col] == chrom) &
-									(parsed_sam[start_col].between(start-buffer,start+buffer)) &
-									(parsed_sam[end_col].between(end-buffer,end+buffer))]
+			chrom_mask
+			& parsed_sam[start_col].between(
+				start - buffer,
+				start + buffer,
+			)
+			& parsed_sam[end_col].between(
+				end - buffer,
+				end + buffer,
+			)
+		]
+		# parsed_sam_coord = parsed_sam[
+		# 							(parsed_sam[chr_col] == chrom) &
+		# 							(parsed_sam[start_col].between(start-buffer,start+buffer)) &
+		# 							(parsed_sam[end_col].between(end-buffer,end+buffer))]
 		if filter_barcodes or mode == 'bulk':
 			return pd.DataFrame(parsed_sam_coord)
 		else:
@@ -1609,13 +1817,35 @@ def add_loom_intron_exon_ratio(
 	# X_name="spliced" places the spliced matrix in adata.X in some Scanpy
 	# versions, while other readers may retain it in adata.layers. The
 	# helper below accommodates either arrangement.
-	adata = sc.read_loom(
-		str(loom_path),
-		sparse=True,
-		X_name="spliced",
-		obs_names="CellID",
-		var_names="Gene",
-	)
+	with warnings.catch_warnings():
+		warnings.filterwarnings(
+			"ignore",
+			message="Variable names are not unique.*",
+		)
+		adata = sc.read_loom(
+			str(loom_path),
+			sparse=True,
+			X_name="spliced",
+			obs_names="CellID",
+			var_names="Gene",
+		)
+	# Preserve the original gene names before AnnData edits them.
+	adata.var["gene_symbol_original"] = adata.var_names.astype(str)
+	if not adata.var_names.is_unique:
+		n_duplicate_gene_rows = int(adata.var_names.duplicated().sum())
+		print(
+			"[add_loom_intron_exon_ratio] "
+			f"Found {n_duplicate_gene_rows} duplicated gene-name rows in loom; "
+			"making adata.var_names unique for internal AnnData compatibility."
+		)
+		adata.var_names_make_unique()
+	# adata = sc.read_loom(
+	# 	str(loom_path),
+	# 	sparse=True,
+	# 	X_name="spliced",
+	# 	obs_names="CellID",
+	# 	var_names="Gene",
+	# )
 	layer_map = {
 		str(layer_name).lower(): layer_name
 		for layer_name in adata.layers.keys()
@@ -2078,6 +2308,20 @@ def run_sample_junction(
 	best = select_best_junction(sam_summ, mode = mode,
 		min_reads=config_func['select_best_junction'].get('min_reads',5),
 		min_seq_reads=config_func['select_best_junction'].get('min_seq_reads',1))
+	if best.empty:
+		sam_jxn_coord = "NA"
+		read_count     = 0
+		seq_read_count = 0
+		pct_reads_seq  = 0.0
+	else:
+		top_bulk = best.iloc[0]
+		best_chr = top_bulk["chromosome"]
+		best_str = top_bulk["junction_start"]
+		best_end = top_bulk["junction_end"]
+		sam_jxn_coord = f"{best_chr}:{int(best_str)}-{int(best_end)}"
+		read_count     = int(top_bulk["sam_read_count"])
+		seq_read_count = int(top_bulk["seq_read_count"])
+		pct_reads_seq  = round(float(top_bulk["pct_reads_seq"]), 4)
 	best.to_csv(f"{base}.sam.jxn.best.summ.tsv", sep="\t", index=False)
 	if mode == 'sc':
 		bcd_summ    = summ_junc_bybcd(filtered)
@@ -2700,7 +2944,7 @@ echo "[$(date)] Completed junctionScope sample: $SAMPLE"
 	return slurm_script
 
 
-def setup(config: dict) -> tuple[list[dict], list[tuple[str, str]]]:
+def setup(config: dict) -> tuple[list[dict], list[tuple[str, str, str]]]:
 	"""
 	Prepare project directory, subset GTFs, derive gene regions, derive NT
 	sequences where missing, and write per-sample-per-junction execution scripts.
@@ -2778,7 +3022,7 @@ def setup(config: dict) -> tuple[list[dict], list[tuple[str, str]]]:
 			# Write absolute path so the master script runs from any directory
 			master.write(f"python3 {shlex.quote(exc_script)}\n")
 			sample_jobs.append((sample, exc_script))
-	print(f"[setup] Master execution script : sh {master_exc}")
+	print(f"[setup] Master execution script:\n\tsh {master_exc}\n")
 
 	# ── Optional Slurm array script ───────────────────────────────────────────
 	if sample_jobs:
@@ -2787,7 +3031,7 @@ def setup(config: dict) -> tuple[list[dict], list[tuple[str, str]]]:
 			sample_jobs=sample_jobs,
 			threads=threads,
 		)
-		print(f"[setup] Optional Slurm array job: sbatch {slurm_script}")
+		print(f"[setup] Optional Slurm array job:\n\tsbatch {slurm_script}\n")
 	else:
 		print("[setup] WARNING: no valid sample runners were generated; "
 			  "Slurm array script was not written")
@@ -2795,10 +3039,8 @@ def setup(config: dict) -> tuple[list[dict], list[tuple[str, str]]]:
 	summary_script = str(Path(output_abs) / "junctScopeSummarize.py")
 	with open(summary_script, "w") as summ:
 		summ.write(_render_summary_script(output_abs, jxn_list, regtools, mode, qc_step))
-	print(f"[setup] After all samples finish: python3 {summary_script}")
-	return jxn_list, samples
-
-#### NEED TO FIX LOOM FILE ARGUMENT IN CASES WHEN VELOCYTO IS RUN AND LOOM IS NOT PROVIDED
+	print(f"[setup] After all samples finish:\n\tpython3 {summary_script}\n")
+	return jxn_list, samples, looms
 
 
 def _render_exc_script(
@@ -3154,9 +3396,9 @@ Examples:
 			mode=mode, use_regtools=regtools)
 		# Bug K: bcd merge only for sc mode
 		if mode == "sc":
-			print(f"[107] loom_file: {loom_abs!r}")
-			print(f"[107] loom exists: {Path(loom_abs).exists() if loom_abs else False}")
-			print(f"[107] loom size: {Path(loom_abs).stat().st_size if loom_abs and Path(loom_abs).exists() else 'NA'}")
+			# print(f"[107] loom_file: {loom_abs!r}")
+			# print(f"[107] loom exists: {Path(loom_abs).exists() if loom_abs else False}")
+			# print(f"[107] loom size: {Path(loom_abs).stat().st_size if loom_abs and Path(loom_abs).exists() else 'NA'}")
 			merge_sample_best_bcd_jxn(os.path.join(proj_name, "Intermediate", sample), loom_file = loom_abs)
 		# Bug I: "summaries" was unquoted bare name
 		if qc_step:
@@ -3177,17 +3419,24 @@ Examples:
 
 	# Full setup ----------------
 	validate_config(config_main, require_input=True)
-	jxn_list, samples = setup(config)
+	jxn_list, samples, looms = setup(config)
 
 	if args.setup_only:
 		return
 	
 	for sample, bam_file in samples:
 		if os.path.isfile(bam_file):
-			_run_one(sample, bam_file, jxn_list)
+			loom_abs = looms.get(sample,None)
+			_run_one(sample, bam_file, jxn_list, loom_abs)
 		else:
 			print(f"[main] WARNING: {bam_file} not found — skipping {sample}")
-
+	result = subprocess.run(
+	    [sys.executable, os.path.join(config_main["proj_name"],'junctScopeSummarize.py')], capture_output=True, text=True
+	)
+	# Access the script's output and errors
+	print("Output:", result.stdout)
+	if result.stderr:
+		print("Errors:", result.stderr)
 
 
 
